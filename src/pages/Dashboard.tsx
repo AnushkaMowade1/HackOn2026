@@ -85,7 +85,7 @@ export function Dashboard() {
 
   const handleAddToQueue = () => {
     if (result) {
-      addPatient(
+      const patient = addPatient(
         formData.name,
         Number(formData.age),
         formData.gender,
@@ -103,6 +103,27 @@ export function Dashboard() {
         formData.symptoms,
         result
       );
+      
+      // Also save to history for record keeping
+      addPatientToHistory(
+        formData.name,
+        Number(formData.age),
+        formData.gender,
+        formData.bloodGroup,
+        formData.contactNumber,
+        formData.arrivalMode,
+        {
+          heartRate: formData.heartRate,
+          systolicBP: formData.systolicBP,
+          diastolicBP: formData.diastolicBP,
+          spO2: formData.spO2,
+          temperature: formData.temperature,
+          painLevel: formData.painLevel
+        },
+        formData.symptoms,
+        result
+      );
+      
       setIsAddedToQueue(true);
     }
   };
