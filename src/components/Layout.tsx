@@ -1,16 +1,49 @@
 import React from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, Users, History, Bell, Activity, ShieldCheck, LogOut, User as UserIcon } from 'lucide-react';
+import { LayoutDashboard, Users, History, Bell, Activity, ShieldCheck, LogOut, User as UserIcon, Siren } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { useAuth } from '../context/AuthContext';
+import { useTriage } from '../context/TriageContext';
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
+function AlertNotificationBadge() {
+  const { alerts } = useTriage();
+  const { user } = useAuth();
+  const navigate = useNavigate();
+  
+  // Show only for receptionist and admin
+  if (!user || !['Admin', 'Receptionist'].includes(user.role) || alerts.length === 0) {
+    return null;
+  }
+  
+  return (
+    <div 
+      onClick={() => navigate('/')}
+      className="mx-4 mb-4 bg-red-50 border-2 border-red-200 rounded-xl p-4 cursor-pointer hover:bg-red-100 transition-all animate-pulse"
+    >
+      <div className="flex items-center gap-3">
+        <div className="bg-red-500 p-2 rounded-lg">
+          <Siren className="w-5 h-5 text-white animate-pulse" />
+        </div>
+        <div className="flex-1">
+          <p className="text-sm font-bold text-red-900">
+            {alerts.length} Ambulance Alert{alerts.length > 1 ? 's' : ''}
+          </p>
+          <p className="text-xs text-red-600">Click to review and add to queue</p>
+        </div>
+        <Bell className="w-5 h-5 text-red-500" />
+      </div>
+    </div>
+  );
+}
+
 export function Sidebar() {
   const { user, logout } = useAuth();
+  const { alerts } = useTriage();
   const navigate = useNavigate();
 
   const handleLogout = () => {
@@ -41,23 +74,32 @@ export function Sidebar() {
       </div>
       
       <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
-        {navItems.map((item) => (
-          <NavLink
-            key={item.to}
-            to={item.to}
-            className={({ isActive }) =>
-              cn(
-                "flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200",
-                isActive 
-                  ? "bg-red-500/10 text-red-500 font-medium" 
-                  : "text-slate-400 hover:bg-slate-800 hover:text-slate-200"
-              )
-            }
-          >
-            <item.icon className="w-5 h-5" />
-            <span>{item.label}</span>
-          </NavLink>
-        ))}
+        <AlertNotificationBadge />
+        {navItems.map((item) => {
+          const showBadge = item.to === '/' && alerts.length > 0 && user && ['Admin', 'Receptionist'].includes(user.role);
+          return (
+            <NavLink
+              key={item.to}
+              to={item.to}
+              className={({ isActive }) =>
+                cn(
+                  "flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 relative",
+                  isActive 
+                    ? "bg-red-500/10 text-red-500 font-medium" 
+                    : "text-slate-400 hover:bg-slate-800 hover:text-slate-200"
+                )
+              }
+            >
+              <item.icon className="w-5 h-5" />
+              <span>{item.label}</span>
+              {showBadge && (
+                <span className="ml-auto bg-red-500 text-white text-xs font-bold px-2 py-0.5 rounded-full animate-pulse">
+                  {alerts.length}
+                </span>
+              )}
+            </NavLink>
+          );
+        })}
       </nav>
 
       <div className="p-4 border-t border-slate-800 space-y-4">

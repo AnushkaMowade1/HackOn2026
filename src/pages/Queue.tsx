@@ -2,12 +2,14 @@ import React, { useMemo } from 'react';
 import { useTriage } from '../context/TriageContext';
 import { TRIAGE_LEVELS } from '../constants';
 import { formatDistanceToNow } from 'date-fns';
-import { Clock, CheckCircle, ChevronRight, AlertCircle, Activity, Heart, Thermometer, Droplets, ShieldAlert, Zap, Info } from 'lucide-react';
+import { Clock, CheckCircle, ChevronRight, AlertCircle, Activity, Heart, Thermometer, Droplets, ShieldAlert, Zap, Info, Bell, Siren } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { clsx } from 'clsx';
 import { motion, AnimatePresence } from 'motion/react';
 
 export function Queue() {
-  const { patients, updatePatientStatus } = useTriage();
+  const { patients, updatePatientStatus, alerts } = useTriage();
+  const navigate = useNavigate();
 
   // Filter only patients with status 'Waiting' or 'In Treatment'
   const queuePatients = useMemo(() => {
@@ -44,15 +46,27 @@ export function Queue() {
           <h2 className="text-3xl font-bold text-slate-900 tracking-tight">Queue</h2>
           <p className="text-slate-500 mt-1">Real-time priority list of patients waiting for assessment.</p>
         </div>
-        <div className="bg-white px-4 py-2 rounded-xl border border-slate-200 shadow-sm flex items-center gap-3">
-          <div className="flex -space-x-2">
-            {[1, 2, 3].map(i => (
-              <div key={i} className="w-8 h-8 rounded-full border-2 border-white bg-slate-100 flex items-center justify-center text-[10px] font-bold text-slate-400">
-                DR
-              </div>
-            ))}
+        <div className="flex items-center gap-4">
+          {alerts.length > 0 && (
+            <button
+              onClick={() => navigate('/')}
+              className="bg-red-50 border-2 border-red-200 text-red-600 px-4 py-2 rounded-xl font-bold text-sm hover:bg-red-100 transition-all flex items-center gap-2 animate-pulse"
+            >
+              <Siren className="w-5 h-5" />
+              <span>{alerts.length} Ambulance Alert{alerts.length > 1 ? 's' : ''}</span>
+              <Bell className="w-4 h-4" />
+            </button>
+          )}
+          <div className="bg-white px-4 py-2 rounded-xl border border-slate-200 shadow-sm flex items-center gap-3">
+            <div className="flex -space-x-2">
+              {[1, 2, 3].map(i => (
+                <div key={i} className="w-8 h-8 rounded-full border-2 border-white bg-slate-100 flex items-center justify-center text-[10px] font-bold text-slate-400">
+                  DR
+                </div>
+              ))}
+            </div>
+            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">3 Staff Active</span>
           </div>
-          <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">3 Staff Active</span>
         </div>
       </header>
 

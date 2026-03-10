@@ -165,8 +165,21 @@ export function Dashboard() {
       );
     }
 
-    // Auto-add to queue for ambulance alerts
+    // Add to queue for ambulance alerts
     addPatient(
+      alert.patientName,
+      alert.age,
+      alert.gender,
+      alert.bloodGroup,
+      alert.contactNumber,
+      'Ambulance',
+      alert.vitals,
+      alert.symptoms,
+      analysis
+    );
+    
+    // Also save to history
+    addPatientToHistory(
       alert.patientName,
       alert.age,
       alert.gender,
