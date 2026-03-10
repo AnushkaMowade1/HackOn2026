@@ -71,30 +71,36 @@ export function TriageProvider({ children }: { children: React.ReactNode }) {
         
         if (patientsRes && patientsRes.ok) {
           const patientsData = await patientsRes.json();
+          console.log('Loaded patients from API:', patientsData.length);
           setPatients(patientsData);
         } else {
-          console.warn('Failed to fetch patients, using local state');
+          console.warn('Backend unavailable - using local state only');
         }
         
         if (historyRes && historyRes.ok) {
           const historyData = await historyRes.json();
+          console.log('Loaded history from API:', historyData.length);
           setHistory(historyData);
         } else {
-          console.warn('Failed to fetch history, using local state');
+          console.warn('Backend unavailable - using local state only');
         }
         
         if (alertsRes && alertsRes.ok) {
           const alertsData = await alertsRes.json();
+          console.log('Loaded alerts from API:', alertsData.length);
           setAlerts(alertsData);
         } else {
-          console.warn('Failed to fetch alerts, using local state');
+          console.warn('Backend unavailable - using local state only');
         }
       } catch (error) {
         console.error("Failed to fetch initial data", error);
+        console.warn('System will work with local state only');
       } finally {
         setLoading(false);
       }
     };
+    
+    // Only fetch if API_URL is configured and not localhost (or if we want to try anyway)
     fetchData();
   }, []);
 
@@ -151,8 +157,14 @@ export function TriageProvider({ children }: { children: React.ReactNode }) {
       },
     };
     
+    console.log('Adding patient to queue:', newPatient.name, 'Status:', newPatient.status);
+    
     // Immediately update local state
-    setPatients(prev => [...prev, newPatient]);
+    setPatients(prev => {
+      const updated = [...prev, newPatient];
+      console.log('Patients array updated. Total patients:', updated.length);
+      return updated;
+    });
     
     // Then sync with backend
     fetch(`${API_URL}/patients`, {
@@ -162,12 +174,13 @@ export function TriageProvider({ children }: { children: React.ReactNode }) {
     })
     .then(res => res.json())
     .then(data => {
+      console.log('Patient synced with backend:', data.name);
       // Update with server response if different
       setPatients(prev => prev.map(p => p.id === newPatient.id ? data : p));
     })
     .catch(error => {
       console.error('Failed to add patient to database:', error);
-      // Patient is already in local state, so no action needed
+      console.log('Patient will remain in local state only');
     });
 
     return newPatient;
@@ -317,8 +330,14 @@ export function TriageProvider({ children }: { children: React.ReactNode }) {
       },
     };
 
+    console.log('Adding patient to history:', newHistoryPatient.name);
+    
     // Immediately update local state
-    setHistory(prev => [...prev, newHistoryPatient]);
+    setHistory(prev => {
+      const updated = [...prev, newHistoryPatient];
+      console.log('History array updated. Total history records:', updated.length);
+      return updated;
+    });
     
     // Then sync with backend
     fetch(`${API_URL}/history`, {
@@ -328,10 +347,12 @@ export function TriageProvider({ children }: { children: React.ReactNode }) {
     })
     .then(res => res.json())
     .then(data => {
+      console.log('History synced with backend:', data.name);
       setHistory(prev => prev.map(h => h.id === newHistoryPatient.id ? data : h));
     })
     .catch(error => {
       console.error('Failed to add patient to history:', error);
+      console.log('History record will remain in local state only');
     });
   };
 
