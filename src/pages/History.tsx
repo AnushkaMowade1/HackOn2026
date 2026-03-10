@@ -25,6 +25,9 @@ export function History() {
   const [filterLevel, setFilterLevel] = useState<string>('All');
   const [filterArrival, setFilterArrival] = useState<string>('All');
 
+  console.log('History records:', history.length);
+  console.log('History data:', history.map(h => ({ name: h.name, id: h.patientId, timestamp: h.timestamp })));
+
   // Group history by patientId to get unique patients
   const patientsList = useMemo(() => {
     const map = new Map<string, Patient[]>();

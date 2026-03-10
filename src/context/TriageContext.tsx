@@ -255,6 +255,13 @@ export function TriageProvider({ children }: { children: React.ReactNode }) {
   const savePatientToHistory = (patientId: string) => {
     const patientToSave = patients.find(p => p.id === patientId);
     if (patientToSave) {
+      // Immediately add to history
+      setHistory(prev => [...prev, patientToSave]);
+      
+      // Remove from active patients
+      setPatients(prev => prev.filter(p => p.id !== patientId));
+      
+      // Sync with backend
       fetch(`${API_URL}/history`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -262,10 +269,16 @@ export function TriageProvider({ children }: { children: React.ReactNode }) {
       })
       .then(res => res.json())
       .then(data => {
-        setHistory(prev => [...prev, data]);
-        setPatients(prev => prev.filter(p => p.id !== patientId));
-        
-        fetch(`${API_URL}/patients/${patientId}`, { method: 'DELETE' });
+        setHistory(prev => prev.map(h => h.id === patientToSave.id ? data : h));
+      })
+      .catch(error => {
+        console.error('Failed to save patient to history:', error);
+      });
+      
+      // Delete from patients endpoint
+      fetch(`${API_URL}/patients/${patientId}`, { method: 'DELETE' })
+      .catch(error => {
+        console.error('Failed to delete patient from active list:', error);
       });
     }
   };
@@ -295,7 +308,7 @@ export function TriageProvider({ children }: { children: React.ReactNode }) {
       triageLevel: analysis.triageLevel,
       analysis,
       timestamp: new Date().toISOString(),
-      status: 'Discharged', // Or other final status
+      status: 'Discharged',
       medicalHistory: {
         chronicDiseases: [],
         allergies: [],
@@ -304,13 +317,22 @@ export function TriageProvider({ children }: { children: React.ReactNode }) {
       },
     };
 
+    // Immediately update local state
+    setHistory(prev => [...prev, newHistoryPatient]);
+    
+    // Then sync with backend
     fetch(`${API_URL}/history`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(newHistoryPatient),
     })
     .then(res => res.json())
-    .then(data => setHistory(prev => [...prev, data]));
+    .then(data => {
+      setHistory(prev => prev.map(h => h.id === newHistoryPatient.id ? data : h));
+    })
+    .catch(error => {
+      console.error('Failed to add patient to history:', error);
+    });
   };
 
   return (
