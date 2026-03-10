@@ -9,14 +9,19 @@ import { motion, AnimatePresence } from 'motion/react';
 export function Queue() {
   const { patients, updatePatientStatus } = useTriage();
 
+  // Filter only patients with status 'Waiting' or 'In Treatment'
+  const queuePatients = useMemo(() => {
+    return patients.filter(p => p.status === 'Waiting' || p.status === 'In Treatment');
+  }, [patients]);
+
   const groupedPatients = useMemo(() => {
     const groups = [
-      { id: 'emergency', label: 'Emergency', icon: ShieldAlert, color: 'text-red-600', bg: 'bg-red-50', patients: [] as typeof patients },
-      { id: 'urgent', label: 'Urgent', icon: Zap, color: 'text-orange-500', bg: 'bg-orange-50', patients: [] as typeof patients },
-      { id: 'other', label: 'Routine & Self-care', icon: Info, color: 'text-slate-500', bg: 'bg-slate-50', patients: [] as typeof patients },
+      { id: 'emergency', label: 'Emergency', icon: ShieldAlert, color: 'text-red-600', bg: 'bg-red-50', patients: [] as typeof queuePatients },
+      { id: 'urgent', label: 'Urgent', icon: Zap, color: 'text-orange-500', bg: 'bg-orange-50', patients: [] as typeof queuePatients },
+      { id: 'other', label: 'Routine & Self-care', icon: Info, color: 'text-slate-500', bg: 'bg-slate-50', patients: [] as typeof queuePatients },
     ];
 
-    patients.forEach(p => {
+    queuePatients.forEach(p => {
       if (p.triageLevel === 'Emergency') groups[0].patients.push(p);
       else if (p.triageLevel === 'Urgent') groups[1].patients.push(p);
       else groups[2].patients.push(p);
@@ -28,9 +33,9 @@ export function Queue() {
     });
 
     return groups;
-  }, [patients]);
+  }, [queuePatients]);
 
-  const totalPatients = patients.length;
+  const totalPatients = queuePatients.length;
 
   return (
     <div className="space-y-12">

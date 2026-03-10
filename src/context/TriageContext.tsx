@@ -64,18 +64,31 @@ export function TriageProvider({ children }: { children: React.ReactNode }) {
       setLoading(true);
       try {
         const [patientsRes, historyRes, alertsRes] = await Promise.all([
-          fetch(`${API_URL}/patients`),
-          fetch(`${API_URL}/history`),
-          fetch(`${API_URL}/alerts`)
+          fetch(`${API_URL}/patients`).catch(() => null),
+          fetch(`${API_URL}/history`).catch(() => null),
+          fetch(`${API_URL}/alerts`).catch(() => null)
         ]);
-        const [patientsData, historyData, alertsData] = await Promise.all([
-          patientsRes.json(),
-          historyRes.json(),
-          alertsRes.json()
-        ]);
-        setPatients(patientsData);
-        setHistory(historyData);
-        setAlerts(alertsData);
+        
+        if (patientsRes && patientsRes.ok) {
+          const patientsData = await patientsRes.json();
+          setPatients(patientsData);
+        } else {
+          console.warn('Failed to fetch patients, using local state');
+        }
+        
+        if (historyRes && historyRes.ok) {
+          const historyData = await historyRes.json();
+          setHistory(historyData);
+        } else {
+          console.warn('Failed to fetch history, using local state');
+        }
+        
+        if (alertsRes && alertsRes.ok) {
+          const alertsData = await alertsRes.json();
+          setAlerts(alertsData);
+        } else {
+          console.warn('Failed to fetch alerts, using local state');
+        }
       } catch (error) {
         console.error("Failed to fetch initial data", error);
       } finally {
@@ -129,7 +142,7 @@ export function TriageProvider({ children }: { children: React.ReactNode }) {
       triageLevel: analysis.triageLevel,
       analysis,
       timestamp: new Date().toISOString(),
-      status: 'Pending',
+      status: 'Waiting',
       medicalHistory: {
         chronicDiseases: [],
         allergies: [],
@@ -144,7 +157,12 @@ export function TriageProvider({ children }: { children: React.ReactNode }) {
       body: JSON.stringify(newPatient),
     })
     .then(res => res.json())
-    .then(data => setPatients(prev => [...prev, data]));
+    .then(data => setPatients(prev => [...prev, data]))
+    .catch(error => {
+      console.error('Failed to add patient to database:', error);
+      // Fallback: add to local state anyway
+      setPatients(prev => [...prev, newPatient]);
+    });
 
     return newPatient;
   };
