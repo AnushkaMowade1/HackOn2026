@@ -1,7 +1,7 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { Vitals, TriageLevel, TriageAnalysis } from "../types";
 
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || "" });
+const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || "" });
 
 export async function predictTriage(
   patientName: string,
@@ -42,7 +42,7 @@ export async function predictTriage(
   `;
 
   const response = await ai.models.generateContent({
-    model: "gemini-3-flash-preview",
+    model: "gpt-3.5-turbo",
     contents: prompt,
     config: {
       responseMimeType: "application/json",

@@ -1,6 +1,8 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { Patient, AmbulanceAlert, TriageLevel, Vitals, TriageAnalysis } from '../types';
-import { predictTriage } from '../services/geminiService';
+import { predictTriage } from '../services/aiService';
+
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 
 interface TriageContextType {
   patients: Patient[];
@@ -49,89 +51,39 @@ interface TriageContextType {
 
 const TriageContext = createContext<TriageContextType | undefined>(undefined);
 
-const INITIAL_HISTORY: Patient[] = [
-  {
-    id: 'h1',
-    patientId: 'P-1024',
-    name: 'Anisha Sharma',
-    age: 22,
-    gender: 'Female',
-    bloodGroup: 'B+',
-    contactNumber: '+91 98765 43210',
-    arrivalMode: 'Walk-in',
-    vitals: { heartRate: 72, systolicBP: 120, diastolicBP: 80, spO2: 98, temperature: 36.6, painLevel: 2 },
-    symptoms: ['Mild Headache'],
-    triageLevel: 'Routine',
-    analysis: { triageLevel: 'Routine', priorityScore: 15, severityScore: 10, status: 'Stable', reasoning: [], riskIndicators: [], criticalAlerts: [] },
-    timestamp: '2026-01-12T10:30:00Z',
-    status: 'Discharged',
-    medicalHistory: { chronicDiseases: ['None'], allergies: ['Dust'], medications: ['None'], surgeries: ['None'] },
-    outcome: 'Discharged - Routine follow-up',
-    doctorNotes: 'Patient presented with mild headache. Vitals normal.'
-  },
-  {
-    id: 'h2',
-    patientId: 'P-1024',
-    name: 'Anisha Sharma',
-    age: 22,
-    gender: 'Female',
-    bloodGroup: 'B+',
-    contactNumber: '+91 98765 43210',
-    arrivalMode: 'Walk-in',
-    vitals: { heartRate: 88, systolicBP: 135, diastolicBP: 85, spO2: 96, temperature: 37.2, painLevel: 6 },
-    symptoms: ['Chest Pain', 'Nausea'],
-    triageLevel: 'Urgent',
-    analysis: { triageLevel: 'Urgent', priorityScore: 65, severityScore: 45, status: 'Observation', reasoning: [], riskIndicators: [], criticalAlerts: [] },
-    timestamp: '2026-02-20T14:15:00Z',
-    status: 'Discharged',
-    medicalHistory: { chronicDiseases: ['None'], allergies: ['Dust'], medications: ['None'], surgeries: ['None'] },
-    outcome: 'Observation - Cardiac enzymes negative',
-    doctorNotes: 'Chest pain resolved after antacids. ECG normal.'
-  },
-  {
-    id: 'h3',
-    patientId: 'P-1024',
-    name: 'Anisha Sharma',
-    age: 22,
-    gender: 'Female',
-    bloodGroup: 'B+',
-    contactNumber: '+91 98765 43210',
-    arrivalMode: 'Ambulance',
-    vitals: { heartRate: 110, systolicBP: 150, diastolicBP: 95, spO2: 92, temperature: 38.5, painLevel: 9 },
-    symptoms: ['Breathing Difficulty', 'Severe Chest Pain'],
-    triageLevel: 'Emergency',
-    analysis: { triageLevel: 'Emergency', priorityScore: 95, severityScore: 85, status: 'Critical', reasoning: [], riskIndicators: [], criticalAlerts: [] },
-    timestamp: '2026-03-10T08:00:00Z',
-    status: 'Discharged',
-    medicalHistory: { chronicDiseases: ['None'], allergies: ['Dust'], medications: ['None'], surgeries: ['None'] },
-    outcome: 'Admitted to ICU',
-    doctorNotes: 'Acute respiratory distress. Stabilized in ER.'
-  }
-];
-
 export function TriageProvider({ children }: { children: React.ReactNode }) {
-  const [patients, setPatients] = useState<Patient[]>(() => {
-    const saved = localStorage.getItem('medtriage_patients');
-    return saved ? JSON.parse(saved) : [];
-  });
-  const [history, setHistory] = useState<Patient[]>(() => {
-    const saved = localStorage.getItem('medtriage_history');
-    return saved ? JSON.parse(saved) : INITIAL_HISTORY;
-  });
-  const [alerts, setAlerts] = useState<AmbulanceAlert[]>(() => {
-    const saved = localStorage.getItem('medtriage_alerts');
-    return saved ? JSON.parse(saved) : [];
-  });
+  const [patients, setPatients] = useState<Patient[]>([]);
+  const [history, setHistory] = useState<Patient[]>([]);
+  const [alerts, setAlerts] = useState<AmbulanceAlert[]>([]);
   const [loading, setLoading] = useState(false);
   const [currentAnalysis, setCurrentAnalysis] = useState<TriageAnalysis | null>(null);
   const [currentFormData, setCurrentFormData] = useState<any | null>(null);
 
-  // Save data to localStorage
   useEffect(() => {
-    localStorage.setItem('medtriage_patients', JSON.stringify(patients));
-    localStorage.setItem('medtriage_history', JSON.stringify(history));
-    localStorage.setItem('medtriage_alerts', JSON.stringify(alerts));
-  }, [patients, history, alerts]);
+    const fetchData = async () => {
+      setLoading(true);
+      try {
+        const [patientsRes, historyRes, alertsRes] = await Promise.all([
+          fetch(`${API_URL}/patients`),
+          fetch(`${API_URL}/history`),
+          fetch(`${API_URL}/alerts`)
+        ]);
+        const [patientsData, historyData, alertsData] = await Promise.all([
+          patientsRes.json(),
+          historyRes.json(),
+          alertsRes.json()
+        ]);
+        setPatients(patientsData);
+        setHistory(historyData);
+        setAlerts(alertsData);
+      } catch (error) {
+        console.error("Failed to fetch initial data", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchData();
+  }, []);
 
   const analyzePatient = async (
     name: string,
@@ -139,10 +91,14 @@ export function TriageProvider({ children }: { children: React.ReactNode }) {
     arrivalMode: 'Walk-in' | 'Ambulance',
     vitals: Vitals,
     symptoms: string[]
-  ) => {
+  ): Promise<TriageAnalysis> => {
     setLoading(true);
     try {
-      return await predictTriage(name, age, arrivalMode, vitals, symptoms);
+      const analysis = await predictTriage(name, age, arrivalMode, vitals, symptoms);
+      return analysis;
+    } catch (error) {
+      console.error("Error analyzing patient:", error);
+      throw error;
     } finally {
       setLoading(false);
     }
@@ -160,8 +116,8 @@ export function TriageProvider({ children }: { children: React.ReactNode }) {
     analysis: TriageAnalysis
   ) => {
     const newPatient: Patient = {
-      id: Math.random().toString(36).substr(2, 9),
-      patientId: `P-${Math.floor(1000 + Math.random() * 9000)}`,
+      id: `P-${Date.now()}`,
+      patientId: `PID-${String(patients.length + 1).padStart(4, '0')}`,
       name,
       age,
       gender,
@@ -173,41 +129,97 @@ export function TriageProvider({ children }: { children: React.ReactNode }) {
       triageLevel: analysis.triageLevel,
       analysis,
       timestamp: new Date().toISOString(),
-      status: 'Waiting',
+      status: 'Pending',
       medicalHistory: {
-        chronicDiseases: symptoms.includes('Fever') ? ['None'] : ['Diabetes Type II'],
-        allergies: ['Penicillin'],
-        medications: ['Metformin'],
-        surgeries: ['Appendectomy (2018)']
-      }
+        chronicDiseases: [],
+        allergies: [],
+        medications: [],
+        surgeries: [],
+      },
     };
+    
+    fetch(`${API_URL}/patients`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(newPatient),
+    })
+    .then(res => res.json())
+    .then(data => setPatients(prev => [...prev, data]));
 
-    setPatients(prev => [...prev, newPatient]);
     return newPatient;
   };
 
   const updatePatientStatus = (id: string, status: Patient['status'], outcome?: string, notes?: string) => {
-    if (status === 'Discharged' || status === 'In Treatment') {
-      const patient = patients.find(p => p.id === id);
-      if (patient) {
-        setHistory(prev => [...prev, { 
-          ...patient, 
-          status, 
-          outcome: outcome || (status === 'In Treatment' ? 'Under Treatment' : 'Discharged'), 
-          doctorNotes: notes || (status === 'In Treatment' ? 'Patient moved to treatment area.' : 'Patient stable.') 
-        }]);
-        setPatients(prev => prev.filter(p => p.id !== id));
-      }
-    } else {
-      setPatients(prev => prev.map(p => p.id === id ? { ...p, status, outcome, doctorNotes: notes } : p));
+    const patientToUpdate = patients.find(p => p.id === id);
+    if (patientToUpdate) {
+      const updatedPatient = { ...patientToUpdate, status, outcome, doctorNotes: notes };
+      
+      fetch(`${API_URL}/patients/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updatedPatient),
+      })
+      .then(res => res.json())
+      .then(data => {
+        setPatients(prev => prev.map(p => p.id === id ? data : p));
+        if (status === 'Discharged' || status === 'Admitted' || status === 'Deceased') {
+          savePatientToHistory(id);
+        }
+      });
     }
   };
 
-  const savePatientToHistory = (id: string) => {
-    const patient = patients.find(p => p.id === id);
-    if (patient) {
-      setHistory(prev => [...prev, { ...patient, status: 'Discharged', outcome: 'Record Saved', doctorNotes: 'Manual record save.' }]);
-      setPatients(prev => prev.filter(p => p.id !== id));
+  const addAlert = (alertData: Omit<AmbulanceAlert, 'id' | 'timestamp'>) => {
+    const newAlert: AmbulanceAlert = {
+      id: `A-${Date.now()}`,
+      ...alertData,
+      timestamp: new Date().toISOString(),
+    };
+
+    fetch(`${API_URL}/alerts`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(newAlert),
+    })
+    .then(res => res.json())
+    .then(data => setAlerts(prev => [...prev, data]));
+  };
+
+  const removeAlert = (id: string) => {
+    fetch(`${API_URL}/alerts/${id}`, { method: 'DELETE' })
+    .then(() => setAlerts(prev => prev.filter(a => a.id !== id)));
+  };
+
+  const updateAlertAnalysis = (id: string, analysis: TriageAnalysis) => {
+    const alertToUpdate = alerts.find(a => a.id === id);
+    if (alertToUpdate) {
+      const updatedAlert = { ...alertToUpdate, analysis };
+      
+      fetch(`${API_URL}/alerts/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updatedAlert),
+      })
+      .then(res => res.json())
+      .then(data => setAlerts(prev => prev.map(a => a.id === id ? data : a)));
+    }
+  };
+
+  const savePatientToHistory = (patientId: string) => {
+    const patientToSave = patients.find(p => p.id === patientId);
+    if (patientToSave) {
+      fetch(`${API_URL}/history`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(patientToSave),
+      })
+      .then(res => res.json())
+      .then(data => {
+        setHistory(prev => [...prev, data]);
+        setPatients(prev => prev.filter(p => p.id !== patientId));
+        
+        fetch(`${API_URL}/patients/${patientId}`, { method: 'DELETE' });
+      });
     }
   };
 
@@ -222,9 +234,9 @@ export function TriageProvider({ children }: { children: React.ReactNode }) {
     symptoms: string[],
     analysis: TriageAnalysis
   ) => {
-    const newPatient: Patient = {
-      id: Math.random().toString(36).substr(2, 9),
-      patientId: `P-${Math.floor(1000 + Math.random() * 9000)}`,
+    const newHistoryPatient: Patient = {
+      id: `H-${Date.now()}`,
+      patientId: `PID-${String(history.length + 1).padStart(4, '0')}`,
       name,
       age,
       gender,
@@ -236,49 +248,37 @@ export function TriageProvider({ children }: { children: React.ReactNode }) {
       triageLevel: analysis.triageLevel,
       analysis,
       timestamp: new Date().toISOString(),
-      status: 'Discharged',
-      outcome: 'Record Saved',
-      doctorNotes: 'Direct save to history.',
+      status: 'Discharged', // Or other final status
       medicalHistory: {
-        chronicDiseases: ['None'],
-        allergies: ['None'],
-        medications: ['None'],
-        surgeries: ['None']
-      }
+        chronicDiseases: [],
+        allergies: [],
+        medications: [],
+        surgeries: [],
+      },
     };
-    setHistory(prev => [...prev, newPatient]);
-  };
 
-  const addAlert = (alert: Omit<AmbulanceAlert, 'id' | 'timestamp'>) => {
-    const newAlert: AmbulanceAlert = {
-      ...alert,
-      id: Math.random().toString(36).substr(2, 9),
-      timestamp: new Date().toISOString()
-    };
-    setAlerts(prev => [newAlert, ...prev]);
-  };
-
-  const removeAlert = (id: string) => {
-    setAlerts(prev => prev.filter(a => a.id !== id));
-  };
-
-  const updateAlertAnalysis = (id: string, analysis: TriageAnalysis) => {
-    setAlerts(prev => prev.map(a => a.id === id ? { ...a, analysis } : a));
+    fetch(`${API_URL}/history`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(newHistoryPatient),
+    })
+    .then(res => res.json())
+    .then(data => setHistory(prev => [...prev, data]));
   };
 
   return (
     <TriageContext.Provider value={{ 
       patients, 
-      history, 
-      alerts, 
-      analyzePatient,
+      history,
+      alerts,
+      analyzePatient, 
       addPatient, 
-      updatePatientStatus, 
-      savePatientToHistory,
-      addPatientToHistory,
+      updatePatientStatus,
       addAlert,
       removeAlert,
       updateAlertAnalysis,
+      savePatientToHistory,
+      addPatientToHistory,
       currentAnalysis,
       setCurrentAnalysis,
       currentFormData,

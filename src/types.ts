@@ -39,7 +39,7 @@ export interface Patient {
   triageLevel: TriageLevel;
   analysis: TriageAnalysis;
   timestamp: string;
-  status: 'Waiting' | 'In Treatment' | 'Discharged';
+  status: 'Waiting' | 'In Treatment' | 'Discharged' | 'Admitted' | 'Deceased' | 'Pending';
   medicalHistory: {
     chronicDiseases: string[];
     allergies: string[];
