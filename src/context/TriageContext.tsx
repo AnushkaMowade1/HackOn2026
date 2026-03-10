@@ -151,17 +151,23 @@ export function TriageProvider({ children }: { children: React.ReactNode }) {
       },
     };
     
+    // Immediately update local state
+    setPatients(prev => [...prev, newPatient]);
+    
+    // Then sync with backend
     fetch(`${API_URL}/patients`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(newPatient),
     })
     .then(res => res.json())
-    .then(data => setPatients(prev => [...prev, data]))
+    .then(data => {
+      // Update with server response if different
+      setPatients(prev => prev.map(p => p.id === newPatient.id ? data : p));
+    })
     .catch(error => {
       console.error('Failed to add patient to database:', error);
-      // Fallback: add to local state anyway
-      setPatients(prev => [...prev, newPatient]);
+      // Patient is already in local state, so no action needed
     });
 
     return newPatient;
@@ -172,6 +178,10 @@ export function TriageProvider({ children }: { children: React.ReactNode }) {
     if (patientToUpdate) {
       const updatedPatient = { ...patientToUpdate, status, outcome, doctorNotes: notes };
       
+      // Update local state immediately
+      setPatients(prev => prev.map(p => p.id === id ? updatedPatient : p));
+      
+      // Then sync with backend
       fetch(`${API_URL}/patients/${id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
@@ -180,10 +190,14 @@ export function TriageProvider({ children }: { children: React.ReactNode }) {
       .then(res => res.json())
       .then(data => {
         setPatients(prev => prev.map(p => p.id === id ? data : p));
-        if (status === 'Discharged' || status === 'Admitted' || status === 'Deceased') {
-          savePatientToHistory(id);
-        }
+      })
+      .catch(error => {
+        console.error('Failed to update patient status:', error);
       });
+      
+      if (status === 'Discharged' || status === 'Admitted' || status === 'Deceased') {
+        savePatientToHistory(id);
+      }
     }
   };
 
@@ -194,18 +208,33 @@ export function TriageProvider({ children }: { children: React.ReactNode }) {
       timestamp: new Date().toISOString(),
     };
 
+    // Immediately update local state
+    setAlerts(prev => [...prev, newAlert]);
+    
+    // Then sync with backend
     fetch(`${API_URL}/alerts`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(newAlert),
     })
     .then(res => res.json())
-    .then(data => setAlerts(prev => [...prev, data]));
+    .then(data => {
+      setAlerts(prev => prev.map(a => a.id === newAlert.id ? data : a));
+    })
+    .catch(error => {
+      console.error('Failed to add alert to database:', error);
+    });
   };
 
   const removeAlert = (id: string) => {
+    // Immediately update local state
+    setAlerts(prev => prev.filter(a => a.id !== id));
+    
+    // Then sync with backend
     fetch(`${API_URL}/alerts/${id}`, { method: 'DELETE' })
-    .then(() => setAlerts(prev => prev.filter(a => a.id !== id)));
+    .catch(error => {
+      console.error('Failed to remove alert from database:', error);
+    });
   };
 
   const updateAlertAnalysis = (id: string, analysis: TriageAnalysis) => {

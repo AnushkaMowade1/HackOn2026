@@ -13,7 +13,11 @@ export function Queue() {
 
   // Filter only patients with status 'Waiting' or 'In Treatment'
   const queuePatients = useMemo(() => {
-    return patients.filter(p => p.status === 'Waiting' || p.status === 'In Treatment');
+    const filtered = patients.filter(p => p.status === 'Waiting' || p.status === 'In Treatment');
+    console.log('Total patients:', patients.length);
+    console.log('Filtered queue patients:', filtered.length);
+    console.log('Patients:', patients.map(p => ({ name: p.name, status: p.status, triage: p.triageLevel })));
+    return filtered;
   }, [patients]);
 
   const groupedPatients = useMemo(() => {
