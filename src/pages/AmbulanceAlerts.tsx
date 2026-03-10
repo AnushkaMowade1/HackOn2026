@@ -38,9 +38,23 @@ export function AmbulanceAlerts() {
     }));
   };
 
+  const [customSymptom, setCustomSymptom] = useState('');
+  const [showCustomInput, setShowCustomInput] = useState(false);
+
+  const addCustomSymptom = () => {
+    if (customSymptom.trim() && !newAlert.symptoms.includes(customSymptom.trim())) {
+      setNewAlert(prev => ({
+        ...prev,
+        symptoms: [...prev.symptoms, customSymptom.trim()]
+      }));
+      setCustomSymptom('');
+      setShowCustomInput(false);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     const vitals = {
       heartRate: newAlert.heartRate,
       systolicBP: newAlert.systolicBP,
@@ -123,7 +137,7 @@ export function AmbulanceAlerts() {
 
   const handleAddToQueue = (alert: any) => {
     if (!alert.analysis) return;
-    
+
     addPatient(
       alert.patientName,
       alert.age,
@@ -150,7 +164,7 @@ export function AmbulanceAlerts() {
           <p className="text-slate-500 mt-1">Real-time tracking of incoming emergency vehicles.</p>
         </div>
         {canCreateAlert && (
-          <button 
+          <button
             onClick={() => setShowAdd(true)}
             className="bg-red-600 hover:bg-red-700 text-white px-6 py-3 rounded-xl font-bold shadow-lg shadow-red-600/20 transition-all flex items-center gap-2"
           >
@@ -177,7 +191,7 @@ export function AmbulanceAlerts() {
                   "h-2 w-full",
                   alert.severity === 'Critical' ? 'bg-red-600' : alert.severity === 'Severe' ? 'bg-orange-500' : 'bg-yellow-400'
                 )} />
-                
+
                 <div className="p-6 space-y-6 flex-1">
                   <div className="flex justify-between items-start">
                     <div className="flex items-center gap-3">
@@ -243,7 +257,7 @@ export function AmbulanceAlerts() {
 
                 <div className="p-4 bg-slate-50 border-t border-slate-100 flex flex-col gap-2">
                   {canAnalyze && !alert.analysis && (
-                    <button 
+                    <button
                       onClick={() => handleAnalyzeAlert(alert)}
                       disabled={analyzingAlertId === alert.id}
                       className="w-full bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-400 text-white py-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all shadow-md shadow-indigo-600/10"
@@ -261,9 +275,9 @@ export function AmbulanceAlerts() {
                       )}
                     </button>
                   )}
-                  
+
                   {canAnalyze && alert.analysis && (
-                    <button 
+                    <button
                       onClick={() => handleAddToQueue(alert)}
                       className="w-full bg-emerald-600 hover:bg-emerald-700 text-white py-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all shadow-md shadow-emerald-600/10"
                     >
@@ -314,7 +328,7 @@ export function AmbulanceAlerts() {
                   <X className="w-5 h-5" />
                 </button>
               </div>
-              
+
               <form onSubmit={handleSubmit} className="p-8 space-y-8 max-h-[80vh] overflow-y-auto">
                 {/* Patient Info */}
                 <section className="space-y-4">
@@ -377,7 +391,7 @@ export function AmbulanceAlerts() {
                     <h4 className="text-sm">Symptoms</h4>
                   </div>
                   <div className="flex flex-wrap gap-2">
-                    {SYMPTOMS_LIST.slice(0, 12).map(symptom => (
+                    {SYMPTOMS_LIST.map(symptom => (
                       <button
                         key={symptom}
                         type="button"
@@ -390,7 +404,57 @@ export function AmbulanceAlerts() {
                         {symptom}
                       </button>
                     ))}
+
+                    {/* Custom Symptoms */}
+                    {newAlert.symptoms.filter(s => !SYMPTOMS_LIST.includes(s)).map(symptom => (
+                      <button
+                        key={symptom}
+                        type="button"
+                        onClick={() => toggleSymptom(symptom)}
+                        className="px-3 py-1.5 rounded-lg border bg-orange-50 border-orange-200 text-orange-700 text-[10px] font-bold transition-all"
+                      >
+                        {symptom}
+                      </button>
+                    ))}
+
+                    <button
+                      type="button"
+                      onClick={() => setShowCustomInput(!showCustomInput)}
+                      className={clsx(
+                        "px-3 py-1.5 rounded-lg border border-dashed text-[10px] font-bold transition-all",
+                        showCustomInput ? "bg-indigo-50 border-indigo-200 text-indigo-700" : "bg-slate-50 border-slate-200 text-slate-400"
+                      )}
+                    >
+                      Other
+                    </button>
                   </div>
+
+                  <AnimatePresence>
+                    {showCustomInput && (
+                      <motion.div
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: 'auto' }}
+                        exit={{ opacity: 0, height: 0 }}
+                        className="flex gap-2 overflow-hidden"
+                      >
+                        <input
+                          type="text"
+                          placeholder="Other symptom..."
+                          className="flex-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs outline-none focus:ring-1 focus:ring-indigo-500/30"
+                          value={customSymptom}
+                          onChange={e => setCustomSymptom(e.target.value)}
+                          onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), addCustomSymptom())}
+                        />
+                        <button
+                          type="button"
+                          onClick={addCustomSymptom}
+                          className="px-3 py-1 bg-indigo-600 text-white rounded-lg font-bold text-[10px]"
+                        >
+                          Add
+                        </button>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
                 </section>
 
                 {/* Alert Details */}
@@ -418,8 +482,8 @@ export function AmbulanceAlerts() {
                     </div>
                   </div>
                 </section>
-                
-                <button 
+
+                <button
                   disabled={isAnalyzing}
                   type="submit"
                   className="w-full bg-red-600 hover:bg-red-700 disabled:bg-slate-400 text-white py-4 rounded-xl font-bold shadow-lg shadow-red-600/20 transition-all flex items-center justify-center gap-2 mt-4"

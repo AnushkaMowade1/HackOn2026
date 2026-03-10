@@ -2,19 +2,21 @@ import React, { useState, useMemo } from 'react';
 import { useTriage } from '../context/TriageContext';
 import { TRIAGE_LEVELS } from '../constants';
 import { format, parseISO } from 'date-fns';
-import { 
-  Search, Filter, Download, ChevronRight, User, Calendar, 
-  FileText, Activity, Heart, Thermometer, Droplets, 
+import {
+  Search, Filter, Download, ChevronRight, User, Calendar,
+  FileText, Activity, Heart, Thermometer, Droplets,
   AlertCircle, ArrowLeft, Plus, ExternalLink, ShieldAlert,
   Stethoscope, Pill, Scissors, ThermometerIcon
 } from 'lucide-react';
 import { clsx } from 'clsx';
 import { motion, AnimatePresence } from 'motion/react';
-import { 
-  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, 
-  ResponsiveContainer, Legend, AreaChart, Area 
+import {
+  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
+  ResponsiveContainer, Legend, AreaChart, Area
 } from 'recharts';
 import { Patient } from '../types';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 export function History() {
   const { history } = useTriage();
@@ -41,8 +43,8 @@ export function History() {
   }, [history]);
 
   const filteredPatients = patientsList.filter(p => {
-    const matchesSearch = p.latestVisit.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                          p.id.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesSearch = p.latestVisit.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      p.id.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesLevel = filterLevel === 'All' || p.latestVisit.triageLevel === filterLevel;
     const matchesArrival = filterArrival === 'All' || p.latestVisit.arrivalMode === filterArrival;
     return matchesSearch && matchesLevel && matchesArrival;
@@ -65,15 +67,120 @@ export function History() {
     }));
   }, [selectedPatient]);
 
+  const handleExportPDF = () => {
+    if (!selectedPatient) return;
+    const p = selectedPatient.latestVisit;
+    const doc = new jsPDF();
+
+    // Brand Header
+    doc.setFillColor(15, 23, 42); // slate-900
+    doc.rect(0, 0, 210, 40, 'F');
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(24);
+    doc.setFont('helvetica', 'bold');
+    doc.text('SUVIDA MEDICAL CENTER', 15, 20);
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'normal');
+    doc.text('Advanced AI Emergency Triage System - Clinical Report', 15, 28);
+    doc.text(`Generated: ${format(new Date(), 'MMMM dd, yyyy HH:mm')}`, 150, 28);
+
+    // Patient Profile Section
+    doc.setTextColor(15, 23, 42);
+    doc.setFontSize(14);
+    doc.setFont('helvetica', 'bold');
+    doc.text('PATIENT PROFILE', 15, 55);
+    doc.setDrawColor(226, 232, 240); // slate-200
+    doc.line(15, 58, 195, 58);
+
+    doc.setFontSize(10);
+    doc.setTextColor(100, 116, 139); // slate-500
+    doc.text('NAME:', 15, 68);
+    doc.text('PATIENT ID:', 85, 68);
+    doc.text('AGE/GENDER:', 150, 68);
+
+    doc.setTextColor(15, 23, 42);
+    doc.setFont('helvetica', 'bold text-slate-900');
+    doc.text(p.name, 15, 74);
+    doc.text(selectedPatient.id, 85, 74);
+    doc.text(`${p.age}Y / ${p.gender}`, 150, 74);
+
+    doc.setTextColor(100, 116, 139);
+    doc.setFont('helvetica', 'normal');
+    doc.text('BLOOD GROUP:', 15, 84);
+    doc.text('CONTACT:', 85, 84);
+    doc.text('TOTAL VISITS:', 150, 84);
+
+    doc.setTextColor(15, 23, 42);
+    doc.setFont('helvetica', 'bold');
+    doc.text(p.bloodGroup, 15, 90);
+    doc.text(p.contactNumber || 'N/A', 85, 90);
+    doc.text(selectedPatient.totalVisits.toString(), 150, 90);
+
+    // Medical History
+    doc.setFontSize(14);
+    doc.text('CLINICAL HISTORY OVERVIEW', 15, 105);
+    doc.line(15, 108, 195, 108);
+
+    doc.setFontSize(10);
+    doc.setTextColor(100, 116, 139);
+    doc.text('CHRONIC DISEASES:', 15, 118);
+    doc.setTextColor(15, 23, 42);
+    doc.text(p.medicalHistory.chronicDiseases.join(', '), 15, 124);
+
+    doc.setTextColor(100, 116, 139);
+    doc.text('ALLERGIES:', 85, 118);
+    doc.setTextColor(15, 23, 42);
+    doc.text(p.medicalHistory.allergies.join(', '), 85, 124);
+
+    doc.setTextColor(100, 116, 139);
+    doc.text('CURRENT MEDICATIONS:', 15, 134);
+    doc.setTextColor(15, 23, 42);
+    doc.text(p.medicalHistory.medications.join(', '), 15, 140);
+
+    // Visit History Table
+    doc.setFontSize(14);
+    doc.text('RECENT CLINICAL VISITS', 15, 155);
+    doc.line(15, 158, 195, 158);
+
+    const tableData = selectedPatient.visits.slice().reverse().map(v => [
+      format(parseISO(v.timestamp), 'MMM dd, yyyy HH:mm'),
+      v.triageLevel,
+      v.symptoms.join(', '),
+      v.arrivalMode,
+      v.outcome || 'Standard Care'
+    ]);
+
+    autoTable(doc, {
+      startY: 165,
+      head: [['Date', 'Triage Level', 'Symptoms', 'Mode', 'Outcome']],
+      body: tableData,
+      headStyles: { fillColor: [15, 23, 42], fontSize: 9 },
+      bodyStyles: { fontSize: 8 },
+      alternateRowStyles: { fillColor: [248, 250, 252] },
+      margin: { left: 15, right: 15 }
+    });
+
+    // Footer
+    const pageCount = doc.getNumberOfPages();
+    for (let i = 1; i <= pageCount; i++) {
+      doc.setPage(i);
+      doc.setFontSize(8);
+      doc.setTextColor(148, 163, 184);
+      doc.text(`Confidential Medical Document - Page ${i} of ${pageCount}`, 105, 285, { align: 'center' });
+    }
+
+    doc.save(`Suvida_Report_${p.name.replace(/\s+/g, '_')}_${selectedPatient.id}.pdf`);
+  };
+
   if (selectedPatientId && selectedPatient) {
     const p = selectedPatient.latestVisit;
     return (
-      <motion.div 
+      <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         className="space-y-8 pb-12"
       >
-        <button 
+        <button
           onClick={() => setSelectedPatientId(null)}
           className="flex items-center gap-2 text-slate-500 hover:text-slate-900 font-bold transition-colors group"
         >
@@ -110,7 +217,7 @@ export function History() {
               </div>
             </div>
           </div>
-          
+
           <div className="bg-slate-900 rounded-3xl p-8 text-white flex flex-col justify-between">
             <h3 className="text-xs font-black uppercase tracking-widest opacity-50 mb-4">Quick Statistics</h3>
             <div className="grid grid-cols-2 gap-4">
@@ -138,7 +245,7 @@ export function History() {
                 <ShieldAlert className="w-4 h-4" />
                 Medical Overview
               </h3>
-              
+
               <div className="space-y-4">
                 <div>
                   <div className="flex items-center gap-2 mb-2">
@@ -151,7 +258,7 @@ export function History() {
                     ))}
                   </div>
                 </div>
-                
+
                 <div>
                   <div className="flex items-center gap-2 mb-2">
                     <AlertCircle className="w-4 h-4 text-red-500" />
@@ -231,7 +338,7 @@ export function History() {
                 <Activity className="w-4 h-4" />
                 Risk Trend Analysis
               </h3>
-              
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                 <div className="h-48">
                   <p className="text-[10px] font-black text-slate-400 uppercase mb-4">Heart Rate Trend (bpm)</p>
@@ -239,8 +346,8 @@ export function History() {
                     <AreaChart data={trendData}>
                       <defs>
                         <linearGradient id="colorHr" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#ef4444" stopOpacity={0.1}/>
-                          <stop offset="95%" stopColor="#ef4444" stopOpacity={0}/>
+                          <stop offset="5%" stopColor="#ef4444" stopOpacity={0.1} />
+                          <stop offset="95%" stopColor="#ef4444" stopOpacity={0} />
                         </linearGradient>
                       </defs>
                       <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
@@ -258,8 +365,8 @@ export function History() {
                     <AreaChart data={trendData}>
                       <defs>
                         <linearGradient id="colorSpo2" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#06b6d4" stopOpacity={0.1}/>
-                          <stop offset="95%" stopColor="#06b6d4" stopOpacity={0}/>
+                          <stop offset="5%" stopColor="#06b6d4" stopOpacity={0.1} />
+                          <stop offset="95%" stopColor="#06b6d4" stopOpacity={0} />
                         </linearGradient>
                       </defs>
                       <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
@@ -277,8 +384,8 @@ export function History() {
                     <AreaChart data={trendData}>
                       <defs>
                         <linearGradient id="colorTemp" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#f59e0b" stopOpacity={0.1}/>
-                          <stop offset="95%" stopColor="#f59e0b" stopOpacity={0}/>
+                          <stop offset="5%" stopColor="#f59e0b" stopOpacity={0.1} />
+                          <stop offset="95%" stopColor="#f59e0b" stopOpacity={0} />
                         </linearGradient>
                       </defs>
                       <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
@@ -296,8 +403,8 @@ export function History() {
                     <AreaChart data={trendData}>
                       <defs>
                         <linearGradient id="colorPain" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#6366f1" stopOpacity={0.1}/>
-                          <stop offset="95%" stopColor="#6366f1" stopOpacity={0}/>
+                          <stop offset="5%" stopColor="#6366f1" stopOpacity={0.1} />
+                          <stop offset="95%" stopColor="#6366f1" stopOpacity={0} />
                         </linearGradient>
                       </defs>
                       <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
@@ -321,7 +428,10 @@ export function History() {
                 <Plus className="w-4 h-4" />
                 Add New Visit
               </button>
-              <button className="flex-1 py-4 bg-white border border-slate-200 text-slate-900 rounded-2xl font-black uppercase tracking-widest text-xs flex items-center justify-center gap-2">
+              <button
+                onClick={handleExportPDF}
+                className="flex-1 py-4 bg-white border border-slate-200 text-slate-900 rounded-2xl font-black uppercase tracking-widest text-xs flex items-center justify-center gap-2 hover:bg-slate-50 transition-colors"
+              >
                 <Download className="w-4 h-4" />
                 Export Patient Report
               </button>
@@ -398,15 +508,15 @@ export function History() {
         <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
           <div className="relative flex-1 md:flex-none">
             <Search className="w-4 h-4 absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
-            <input 
-              type="text" 
-              placeholder="Search Name or ID..." 
+            <input
+              type="text"
+              placeholder="Search Name or ID..."
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
               className="pl-11 pr-4 py-3 bg-white border border-slate-200 rounded-2xl text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all w-full md:w-64 shadow-sm"
             />
           </div>
-          <select 
+          <select
             value={filterLevel}
             onChange={e => setFilterLevel(e.target.value)}
             className="px-4 py-3 bg-white border border-slate-200 rounded-2xl text-sm font-bold text-slate-600 focus:ring-2 focus:ring-indigo-500/20 outline-none shadow-sm"
@@ -417,7 +527,7 @@ export function History() {
             <option>Routine</option>
             <option>Self-care</option>
           </select>
-          <select 
+          <select
             value={filterArrival}
             onChange={e => setFilterArrival(e.target.value)}
             className="px-4 py-3 bg-white border border-slate-200 rounded-2xl text-sm font-bold text-slate-600 focus:ring-2 focus:ring-indigo-500/20 outline-none shadow-sm"
@@ -474,7 +584,7 @@ export function History() {
                       </div>
                     </td>
                     <td className="px-8 py-5 text-right">
-                      <button 
+                      <button
                         onClick={() => setSelectedPatientId(p.id)}
                         className="p-2 text-slate-300 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl transition-all"
                       >

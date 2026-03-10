@@ -36,7 +36,15 @@ export const SYMPTOMS_LIST = [
   'Chest Pain',
   'Breathing Difficulty',
   'Severe Bleeding',
+  'Severe Pain',
   'Dizziness',
   'Fever',
-  'Vomiting'
+  'Vomiting',
+  'Nausea',
+  'Headache',
+  'Confusion',
+  'Numbness',
+  'Vision Loss',
+  'Abdominal Pain',
+  'Allergic Reaction'
 ];

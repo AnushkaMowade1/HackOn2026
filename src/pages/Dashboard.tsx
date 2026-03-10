@@ -1,30 +1,30 @@
 import React, { useState } from 'react';
 import { useTriage } from '../context/TriageContext';
 import { INITIAL_VITALS, TRIAGE_LEVELS, SYMPTOMS_LIST } from '../constants';
-import { 
-  Activity, User, ClipboardList, AlertCircle, Loader2, 
-  Siren, CheckCircle2, AlertTriangle, XCircle, 
+import {
+  Activity, User, ClipboardList, AlertCircle, Loader2,
+  Siren, CheckCircle2, AlertTriangle, XCircle,
   ChevronRight, Save, PlusCircle, Heart, Thermometer, Droplets,
   Clock, MapPin
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { clsx } from 'clsx';
-import { 
+import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell,
   PieChart, Pie, Label
 } from 'recharts';
 
 export function Dashboard() {
-  const { 
-    analyzePatient, addPatient, addPatientToHistory, 
+  const {
+    analyzePatient, addPatient, addPatientToHistory,
     alerts, removeAlert, loading,
     currentAnalysis, setCurrentAnalysis,
     currentFormData, setCurrentFormData
   } = useTriage();
-  
+
   const [isSaved, setIsSaved] = useState(false);
   const [isAddedToQueue, setIsAddedToQueue] = useState(false);
-  
+
   const [formData, setFormData] = useState(currentFormData || {
     name: '',
     age: '',
@@ -35,7 +35,7 @@ export function Dashboard() {
     ...INITIAL_VITALS,
     symptoms: [] as string[]
   });
-  
+
   const result = currentAnalysis;
 
   const toggleSymptom = (symptom: string) => {
@@ -45,6 +45,20 @@ export function Dashboard() {
         ? prev.symptoms.filter(s => s !== symptom)
         : [...prev.symptoms, symptom]
     }));
+  };
+
+  const [customSymptom, setCustomSymptom] = useState('');
+  const [showCustomInput, setShowCustomInput] = useState(false);
+
+  const addCustomSymptom = () => {
+    if (customSymptom.trim() && !formData.symptoms.includes(customSymptom.trim())) {
+      setFormData(prev => ({
+        ...prev,
+        symptoms: [...prev.symptoms, customSymptom.trim()]
+      }));
+      setCustomSymptom('');
+      setShowCustomInput(false);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -119,7 +133,7 @@ export function Dashboard() {
 
   const handleAlertToQueue = async (alert: any) => {
     let analysis = alert.analysis;
-    
+
     if (!analysis) {
       analysis = await analyzePatient(
         alert.patientName,
@@ -129,7 +143,7 @@ export function Dashboard() {
         alert.symptoms
       );
     }
-    
+
     // Auto-add to queue for ambulance alerts
     addPatient(
       alert.patientName,
@@ -142,7 +156,7 @@ export function Dashboard() {
       alert.symptoms,
       analysis
     );
-    
+
     removeAlert(alert.id);
     setCurrentAnalysis(analysis);
     setCurrentFormData({
@@ -164,6 +178,8 @@ export function Dashboard() {
     setCurrentFormData(null);
     setIsSaved(false);
     setIsAddedToQueue(false);
+    setCustomSymptom('');
+    setShowCustomInput(false);
     setFormData({
       name: '',
       age: '',
@@ -194,7 +210,7 @@ export function Dashboard() {
           <p className="text-slate-500 mt-1">Clinical analysis panel for emergency triage decisions.</p>
         </div>
         {result && (
-          <button 
+          <button
             onClick={resetForm}
             className="flex items-center gap-2 px-4 py-2 text-slate-600 hover:text-slate-900 font-medium transition-colors"
           >
@@ -384,7 +400,61 @@ export function Dashboard() {
                       {symptom}
                     </button>
                   ))}
+
+                  {/* Custom Symptoms from the list that aren't in SYMPTOMS_LIST */}
+                  {formData.symptoms.filter(s => !SYMPTOMS_LIST.includes(s)).map(symptom => (
+                    <button
+                      key={symptom}
+                      type="button"
+                      onClick={() => toggleSymptom(symptom)}
+                      className="flex items-center gap-2 px-4 py-3 rounded-xl border bg-orange-50 border-orange-200 text-orange-700 shadow-sm text-xs font-bold transition-all text-left"
+                    >
+                      <div className="w-4 h-4 rounded border bg-orange-500 border-orange-500 flex items-center justify-center transition-all">
+                        <CheckCircle2 className="w-3 h-3 text-white" />
+                      </div>
+                      {symptom}
+                    </button>
+                  ))}
+
+                  <button
+                    type="button"
+                    onClick={() => setShowCustomInput(!showCustomInput)}
+                    className={clsx(
+                      "flex items-center gap-2 px-4 py-3 rounded-xl border border-dashed text-xs font-bold transition-all text-left",
+                      showCustomInput ? "bg-indigo-50 border-indigo-200 text-indigo-700" : "bg-slate-50 border-slate-200 text-slate-400 hover:border-slate-300"
+                    )}
+                  >
+                    <PlusCircle className="w-4 h-4" />
+                    Other
+                  </button>
                 </div>
+
+                <AnimatePresence>
+                  {showCustomInput && (
+                    <motion.div
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: 'auto' }}
+                      exit={{ opacity: 0, height: 0 }}
+                      className="flex gap-2 overflow-hidden"
+                    >
+                      <input
+                        type="text"
+                        placeholder="Type other symptom..."
+                        className="flex-1 px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all text-sm"
+                        value={customSymptom}
+                        onChange={e => setCustomSymptom(e.target.value)}
+                        onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), addCustomSymptom())}
+                      />
+                      <button
+                        type="button"
+                        onClick={addCustomSymptom}
+                        className="px-4 py-2 bg-indigo-600 text-white rounded-xl font-bold text-xs"
+                      >
+                        Add
+                      </button>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </section>
             </div>
 
@@ -421,10 +491,10 @@ export function Dashboard() {
               </h3>
               <div className="space-y-3">
                 {alerts.map(alert => (
-                  <motion.div 
+                  <motion.div
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
-                    key={alert.id} 
+                    key={alert.id}
                     className="bg-white border-l-4 border-red-500 rounded-2xl p-4 shadow-sm border border-slate-200 flex justify-between items-center group"
                   >
                     <div>
@@ -445,7 +515,7 @@ export function Dashboard() {
                         <span className="flex items-center gap-1"><MapPin className="w-3 h-3" /> {alert.location}</span>
                       </div>
                     </div>
-                    <button 
+                    <button
                       onClick={() => handleAlertToQueue(alert)}
                       className="bg-red-50 text-red-600 hover:bg-red-600 hover:text-white p-2 rounded-xl transition-all"
                       title="Add to Queue"
@@ -487,7 +557,7 @@ export function Dashboard() {
                       </div>
                     </div>
                   </div>
-                  
+
                   {/* Severity Score Meter */}
                   <div className="p-8 border-t border-slate-100">
                     <div className="flex justify-between items-end mb-4">
@@ -503,7 +573,7 @@ export function Dashboard() {
                       </span>
                     </div>
                     <div className="h-3 bg-slate-100 rounded-full overflow-hidden">
-                      <motion.div 
+                      <motion.div
                         initial={{ width: 0 }}
                         animate={{ width: `${result.severityScore}%` }}
                         className={clsx(
@@ -534,7 +604,7 @@ export function Dashboard() {
                 {/* Quick Actions */}
                 <div className="grid grid-cols-1 gap-3">
                   {!isAddedToQueue ? (
-                    <button 
+                    <button
                       onClick={handleAddToQueue}
                       className="w-full py-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl font-bold text-sm transition-all flex items-center justify-center gap-2"
                     >
@@ -547,9 +617,9 @@ export function Dashboard() {
                       Added to Queue
                     </div>
                   )}
-                  
+
                   {!isSaved ? (
-                    <button 
+                    <button
                       onClick={handleSave}
                       className="w-full py-4 bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 rounded-2xl font-bold text-sm transition-all flex items-center justify-center gap-2"
                     >
@@ -598,7 +668,7 @@ export function Dashboard() {
                     <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f1f5f9" />
                     <XAxis type="number" hide />
                     <YAxis dataKey="name" type="category" width={60} axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 800, fill: '#64748b' }} />
-                    <Tooltip 
+                    <Tooltip
                       cursor={{ fill: '#f8fafc' }}
                       content={({ active, payload }) => {
                         if (active && payload && payload.length) {

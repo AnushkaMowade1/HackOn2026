@@ -44,10 +44,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const login = async (email: string, password: string): Promise<boolean> => {
     // Mock login logic - in a real app, this would be an API call
     const foundUser = users.find(u => u.email === email);
-    
+
     // Simple password check for demo purposes
     const expectedPassword = email.split('@')[0] + '123';
-    
+
     if (foundUser && password === expectedPassword) {
       setUser(foundUser);
       return true;
