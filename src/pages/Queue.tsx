@@ -120,8 +120,17 @@ export function Queue() {
                               </div>
                               <div className="flex items-center gap-4 text-sm text-slate-500">
                                 <div className="flex items-center gap-1.5">
-                                  <Clock className="w-4 h-4" />
-                                  <span>Waiting for {formatDistanceToNow(new Date(patient.timestamp))}</span>
+                                  {patient.status === 'In Treatment' ? (
+                                    <>
+                                      <Activity className="w-4 h-4 text-emerald-500 animate-pulse" />
+                                      <span className="font-bold text-emerald-600">Under Treatment</span>
+                                    </>
+                                  ) : (
+                                    <>
+                                      <Clock className="w-4 h-4" />
+                                      <span>Waiting for {formatDistanceToNow(new Date(patient.timestamp))}</span>
+                                    </>
+                                  )}
                                 </div>
                                 <div className="flex items-center gap-1.5">
                                   <AlertCircle className="w-4 h-4" />
@@ -156,13 +165,20 @@ export function Queue() {
 
                             {/* Actions */}
                             <div className="flex items-center gap-3">
-                              <button 
-                                onClick={() => updatePatientStatus(patient.id, 'In Treatment')}
-                                className="bg-slate-900 hover:bg-slate-800 text-white px-6 py-2.5 rounded-xl font-bold text-sm transition-all flex items-center gap-2"
-                              >
-                                <span>Treat</span>
-                                <ChevronRight className="w-4 h-4" />
-                              </button>
+                              {patient.status === 'In Treatment' ? (
+                                <div className="bg-emerald-50 text-emerald-700 border border-emerald-200 px-6 py-2.5 rounded-xl font-bold text-sm flex items-center gap-2">
+                                  <Activity className="w-4 h-4 animate-pulse" />
+                                  <span>Treating</span>
+                                </div>
+                              ) : (
+                                <button 
+                                  onClick={() => updatePatientStatus(patient.id, 'In Treatment')}
+                                  className="bg-slate-900 hover:bg-slate-800 text-white px-6 py-2.5 rounded-xl font-bold text-sm transition-all flex items-center gap-2"
+                                >
+                                  <span>Treat</span>
+                                  <ChevronRight className="w-4 h-4" />
+                                </button>
+                              )}
                               <button 
                                 onClick={() => {
                                   const outcome = prompt('Enter treatment outcome:', 'Discharged - Stable');
